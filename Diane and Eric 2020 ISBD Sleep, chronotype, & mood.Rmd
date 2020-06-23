@@ -1,0 +1,190 @@
+---
+title: "Mood, sleep and chronotype - US & Korea"
+date: "5/30/2020"
+output:
+  html_document:
+    df_print: kable
+  pdf_document:
+    df_print: kable
+  word_document: default
+---
+Guillermo is using this to teach me Git! 
+He is being patient. I am being impulsive!
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(haven)
+library(ggplot2)
+library(psych)
+options(digits = 2, scipen = NULL)
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+Trim down to the variables used in the presentation, and omit missing cases. 
+
+```{r}
+alldata<-read_spss("Korea_Spring_Fall_2017 v5 (safe)+2018+2019+Spr2020.sav")
+
+n398<-alldata%>%select(gbi7up, gbi7down, Gender, schoolasianyn, raceasianyn, meqtotal, meqfac1, meqfac2, psqitotalPOMP, Age, despa, desna, desnanod, deshost, desdom)
+n398<-na.omit(n398)
+n397<-filter(n398,Gender<2) #Drop nonbinary because insufficient cases to prevent deductive identification
+```
+
+Descriptives
+```{r}
+describe(n397)
+```
+
+```{r}
+attach(n397)
+table(schoolasianyn,raceasianyn)
+```
+
+
+```{r}
+options(digits=0)
+meqhist<-histbackback(split(n397$meqtotal, n397$schoolasianyn), ylab="Morningness Score", main ="Morningness by Asian University") 
+# Just adding color to the figure 
+barplot(-meqhist$left, col="gray50", horiz=TRUE, space=0, add=TRUE, axes=FALSE) 
+barplot(meqhist$right, col="maroon", horiz=TRUE, space=0, add=TRUE, axes=FALSE) 
+```
+
+
+```{r}
+library(corrplot)
+cont<-n397%>%select(gbi7up, gbi7down, meqtotal, meqfac1, meqfac2, psqitotalPOMP, Age, despa, desna, desnanod, deshost, desdom)
+corrplot(cor(cont), method="circle")
+
+
+
+library(corrgram)
+
+corrgram(cont,lower.panel=panel.pts, upper.panel=panel.ellipse)
+
+```
+
+```{r}
+
+cont2<-n397%>%select(meqtotal, psqitotalPOMP, gbi7up, gbi7down, despa,  desnanod, deshost)
+corrplot(cor(cont2), method="circle")
+
+corrgram(cont2,lower.panel=panel.pts, upper.panel=panel.ellipse)
+
+```
+
+```{r meqtotal as DV}
+setCor(meqtotal ~ Gender + schoolasianyn + raceasianyn +Age, data = n397, std = F)
+
+```
+==Conceptual Interpretation==
+Women are more likely to slightly more morning types. No other significant patter (trends would be for increasing morningness with age -- yep; more evening in Asia -- face valid).
+
+
+==Technical Observations==
+Same values as SPSS, with these caveats: 
+the slopes are betas (standardized), and there is no intercept getting estimated (it is being set to zero by the standardization, but it is not clear to me what "zero" means in this scenario conceptually -- is it the grand mean? ). 
+
+If we switch to std=FALSE, the unstandardized solution, then the intercept and coefficients match(the constant in the raw SPSS model is 39.863, which is the marginal for white males going to school in the USA as newborns),  but the VIF values for intercept and age are wildly discrepant. The VIF values for the standardized setCor output match the SPSS output. Weird. 
+
+
+```{r meqtotal as DV, standardized (betas)}
+setCor(meqtotal ~ Gender + schoolasianyn + raceasianyn +Age, data = n397)
+
+
+```
+
+```{r}
+sc <- setCor(gbi7up + gbi7down ~  meqtotal + psqitotalPOMP:Gender,data=n397) 
+# regression from raw data
+sc
+summary(sc)
+pairs.panels(sc$data)
+```
+##Repeat with DES
+```{r}
+des3 <- setCor(despa + deshost + desnanod ~  meqtotal + psqitotalPOMP:Gender,data=n397) 
+# regression from raw data
+des3
+summary(des3)
+pairs.panels(des3$data)
+
+```
+
+morganhpscaq<-ggplot(mewcpb, aes(hpstotal, caqpomp,  color=collegeasianyn))+xlim(0,.6)+ylim(0,.6)+xlab("Hypomanic Symptoms")+ylab("Creative Achievement")+geom_jitter()morganhpscaq +geom_point(size=1, shape=1)+geom_smooth(aes(group=collegeasianyn), method="lm", size=1, se=F)
+
+
+#Follet
+```{r PSQI and 7Down, with ggMarginal codes for the marginal histograms}
+n397$female<-as.factor(n397$Gender)
+library(ggplot2)
+library(ggExtra)
+DepressionGraph <-ggplot(n397, aes(x= psqitotalPOMP, y=gbi7down, color=female)) +geom_point() +
+	geom_jitter()+ scale_color_manual(values=c("#7BAFD4", "#8D9092")) + geom_smooth(method="lm", se=T) + xlab("PSQI total (% Max)") + ylab("Depression Score (gbi7down)") +ggtitle("Depressive symptoms as a function of sleep problems")
+
+ggMarginal(DepressionGraph, groupColour=TRUE, groupFill = TRUE)
+DepressionGraph
+
+```
+
+```{r PSQI and 7Down, with ggMarginal codes for the marginal histograms}
+n397$Sex<-factor(n397$Gender, levels  = c(0, 1), labels = c("Male", "Female"))
+
+library(ggplot2)
+library(ggExtra)
+DepressionGraph <-ggplot(n397, aes(x= psqitotalPOMP, y=gbi7down, color=Sex)) +geom_point() +
+	geom_jitter()+ scale_color_manual(values=c("#7BAFD4", "#8D9092")) + geom_smooth(method="lm", se=T) + xlab("PSQI total (% Max)") + ylab("Depression Score (gbi7down)") +ggtitle("Depressive symptoms as a function of sleep problems")+theme_bw()
+
+ggMarginal(DepressionGraph, groupColour=TRUE, groupFill = TRUE)
+DepressionGraph
+
+```
+
+```{r PSQI and 7Up, with ggMarginal codes for the marginal histograms}
+
+UpGraph <-ggplot(n397, aes(x= psqitotalPOMP, y=gbi7up, color=Sex)) +geom_point() +
+	geom_jitter()+ scale_color_manual(values=c("#7BAFD4", "#8D9092")) + geom_smooth(method="lm", se=T) + xlab("PSQI total (% Max)") + ylab("Hypomanic Score (7 Up)") +ggtitle("Hypomanic symptoms as a function of sleep problems")+theme_bw()
+
+ggMarginal(UpGraph, groupColor=TRUE, groupFill = TRUE)
+UpGraph
+
+```
+
+
+```{r Code for a beeswarm overlaid on top of a box plot that considers global eating disorder scores separated by gender:}
+library(beeswarm)
+
+beeswarm (edeqGlobal~Gender, data = ku2018RNAR,
+          method = 'swarm', 
+          pch = 16, pwcol = as.numeric(Gender + 4),
+          cex = .7, #cex controls the size of the dots
+          xlab = 'Gender', ylab = 'Global Eating Disorder Score',
+          labels = c('Male', 'Female'),
+          main="Distribution of Global Eating Disorder Scores, by Gender",
+          ylim = c(0,6))
+
+boxplot(edeqGlobal~Gender, data = ku2018RNAR,add = T, 
+        names = c("",""),col="#0000ff22")
+```
+#Andrew Han
+```{r}
+#Jitter plot code
+library(ggplot2)
+plot1<-ggplot(data=hdat2, aes(SchoolPress, LifeSat, color = SES))
+plot1+geom_jitter()+labs(x="Schoolwork Pressure", y="Life Satisfaction")+geom_smooth(method="loess", color = "red") 
+```
+#David Nguyen
+#Cohen's D for all significant variables 
+```{r}
+library(lsr)
+cohensD(DataA$bfiopen, DataA$desie)
+cohensD(DataA$bficonscientious, DataA$dessad)
+
+
+#Plot of how Openness and Interest are correlated in relation to how asian an individual is
+```{r}
+plot1<-ggplot(data=DataA, aes(bfiopen, desie, color = howasian))
+plot1+geom_jitter()+labs(x="Openness", y="Interest")+geom_smooth(method="loess", color = "red") 
+plot1<-ggplot(data=DataA, aes(bfiopen, desie))
+plot1+geom_smooth(method="loess")
+```
+  
