@@ -10,6 +10,7 @@ output:
 ---
 Guillermo is using this to teach me Git! 
 He is being patient. I am being impulsive!
+WE are making progress!
 
 ```{r setup, include=FALSE}
 library(tidyverse)
